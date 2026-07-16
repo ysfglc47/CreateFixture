@@ -1,5 +1,5 @@
 export const ADMOB_APP_IDS = {
-  android: 'ca-app-pub-3940256099942544~3347511713',
+  android: 'ca-app-pub-3103480668670533~5117925848',
   ios: 'ca-app-pub-3940256099942544~1458002511',
 };
 
@@ -11,8 +11,8 @@ export const ADMOB_TEST_AD_UNITS = {
 export const PRODUCTION_AD_UNITS = {
   publisherId: 'pub-3103480668670533',
   appAdsTxt: 'google.com, pub-3103480668670533, DIRECT, f08c47fec0942fa0',
-  banner: '',
-  interstitial: '',
+  banner: 'ca-app-pub-3103480668670533/9970229054',
+  interstitial: 'ca-app-pub-3103480668670533/2091739037',
 };
 
 function isValidAdUnitId(value?: string) {

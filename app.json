@@ -2,7 +2,7 @@
   "expo": {
     "name": "CreateFixture",
     "slug": "createfixture",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "scheme": "createfixture",
     "orientation": "portrait",
     "icon": "./assets/createfixture-logo.png",
@@ -28,7 +28,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.createfixture.app",
-      "versionCode": 2
+      "versionCode": 3
     },
     "web": {
       "favicon": "./assets/createfixture-logo.png"
@@ -41,7 +41,7 @@
       [
         "react-native-google-mobile-ads",
         {
-          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
+          "androidAppId": "ca-app-pub-3103480668670533~5117925848",
           "iosAppId": "ca-app-pub-3940256099942544~1458002511",
           "delayAppMeasurementInit": true
         }
@@ -52,12 +52,12 @@
       "admob": {
         "publisherId": "pub-3103480668670533",
         "appAdsTxt": "google.com, pub-3103480668670533, DIRECT, f08c47fec0942fa0",
-        "usesTestAppIds": true,
-        "productionAdsEnabled": false
+        "usesTestAppIds": false,
+        "productionAdsEnabled": true
       },
       "playStore": {
         "packageName": "com.createfixture.app",
-        "firstVersionCode": 2,
+        "firstVersionCode": 3,
         "releaseFormat": "AAB"
       },
       "eas": {
