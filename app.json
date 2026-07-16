@@ -2,7 +2,7 @@
   "expo": {
     "name": "CreateFixture",
     "slug": "createfixture",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "scheme": "createfixture",
     "orientation": "portrait",
     "icon": "./assets/createfixture-logo.png",
@@ -28,7 +28,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.createfixture.app",
-      "versionCode": 1
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/createfixture-logo.png"
@@ -57,7 +57,7 @@
       },
       "playStore": {
         "packageName": "com.createfixture.app",
-        "firstVersionCode": 1,
+        "firstVersionCode": 2,
         "releaseFormat": "AAB"
       },
       "eas": {
