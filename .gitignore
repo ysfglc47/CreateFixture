@@ -18,6 +18,13 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Local Android build state (must never be uploaded to EAS)
+android/local.properties
+android/.gradle/
+android/.cxx/
+android/build/
+android/app/build/
+
 # Metro
 .metro-health-check*
 
