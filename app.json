@@ -2,7 +2,7 @@
   "expo": {
     "name": "CreateFixture",
     "slug": "createfixture",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "scheme": "createfixture",
     "orientation": "portrait",
     "icon": "./assets/createfixture-logo.png",
@@ -28,7 +28,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.createfixture.app",
-      "versionCode": 3
+      "versionCode": 4
     },
     "web": {
       "favicon": "./assets/createfixture-logo.png"
