@@ -1,6 +1,7 @@
 ﻿import 'react-native-gesture-handler';
 import React, { useEffect } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { Linking } from 'react-native';
+import { createNavigationContainerRef, NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -40,10 +41,12 @@ import EliminationBracketScreen from './managements/EliminationBracketScreen';
 import EliminationTeamEditScreen from './managements/EliminationTeamEditScreen';
 import { initializeAdMob } from './src/services/admobService';
 import { loadInterstitialAd } from './utils/ads';
+import { preparePasswordRecovery } from './src/services/cloudDatabase';
 
 installRuntimeTranslationPatch();
 
 const Stack = createStackNavigator();
+const navigationRef = createNavigationContainerRef();
 
 export default function App() {
   useEffect(() => {
@@ -75,8 +78,41 @@ export default function App() {
 function AppNavigator() {
   useLanguage();
 
+  useEffect(() => {
+    let active = true;
+    let navigationTimer = null;
+
+    const handleRecoveryLink = async (url) => {
+      try {
+        const isRecovery = await preparePasswordRecovery(url);
+        if (!active || !isRecovery) return;
+
+        const openResetScreen = () => {
+          if (!active) return;
+          if (navigationRef.isReady()) {
+            navigationRef.navigate('ResetPassword', { cloudRecovery: true });
+            return;
+          }
+          navigationTimer = setTimeout(openResetScreen, 150);
+        };
+        openResetScreen();
+      } catch (error) {
+        // Invalid or expired recovery links are handled on the reset screen.
+      }
+    };
+
+    Linking.getInitialURL().then(handleRecoveryLink).catch(() => {});
+    const subscription = Linking.addEventListener('url', event => handleRecoveryLink(event.url));
+
+    return () => {
+      active = false;
+      if (navigationTimer) clearTimeout(navigationTimer);
+      subscription.remove();
+    };
+  }, []);
+
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />

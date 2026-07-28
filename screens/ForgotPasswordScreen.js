@@ -1,7 +1,7 @@
 ﻿import React, { useState } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { FontAwesome as Icon } from '@expo/vector-icons';
-import { createPasswordResetToken } from '../database';
+import { createPasswordResetToken, isCloudDatabaseConfigured } from '../database';
 
 import { Text, TextInput } from '../components/I18nPrimitives';
 
@@ -15,12 +15,20 @@ export default function ForgotPasswordScreen({ navigation }) {
       setMessage('E-posta adresi giriniz.');
       return;
     }
+    if (!isCloudDatabaseConfigured()) {
+      setMessage('Çevrimiçi hesap servisi yapılandırılmamış. Lütfen daha sonra tekrar deneyin.');
+      return;
+    }
 
     setLoading(true);
     try {
       const result = await createPasswordResetToken(email.trim());
       if (!result) {
         setMessage('Bu e-posta ile kayıtlı kullanıcı bulunamadı.');
+        return;
+      }
+      if (result.emailSent) {
+        setMessage('Şifre yenileme bağlantısı e-posta adresinize gönderildi. Gelen kutunuzu ve spam klasörünü kontrol edin.');
         return;
       }
       setMessage(`Şifre yenileme bağlantısı hazır: createfixture://reset-password?token=${result.token}`);
@@ -42,7 +50,7 @@ export default function ForgotPasswordScreen({ navigation }) {
         <View style={{ width: 32 }} />
       </View>
       <Text style={styles.description}>
-        Kayıtlı e-posta adresinizi girin. Demo yerel sürümde bağlantı uygulama içinde oluşturulur.
+        Kayıtlı e-posta adresinizi girin. Şifre yenileme bağlantısı e-posta adresinize gönderilir.
       </Text>
       {message ? <Text style={styles.message}>{message}</Text> : null}
       <TextInput

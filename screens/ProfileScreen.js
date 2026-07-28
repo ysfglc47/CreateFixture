@@ -4,7 +4,13 @@ import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
 import { useDarkMode } from '../DarkModeContext';
 import { FontAwesome as Icon } from '@expo/vector-icons';
-import { deleteUserByEmail, findUserByEmail, getTournamentsFromDatabase, updateUserProfile } from '../database';
+import {
+  deleteUserByEmail,
+  findUserByEmail,
+  getTournamentsFromDatabase,
+  signOutUser,
+  updateUserProfile,
+} from '../database';
 import KvkkModal from '../components/KvkkModal';
 import { maskEmail } from '../utils/privacy';
 
@@ -83,7 +89,8 @@ export default function ProfileScreen({ navigation, route }) {
     setUser(previous => ({ ...previous, avatar_uri: avatarUri }));
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOutUser();
     navigation.reset({
       index: 0,
       routes: [{ name: 'Login' }],

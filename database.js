@@ -1,10 +1,12 @@
 ﻿import * as SQLite from 'expo-sqlite';
 import md5 from 'md5';
+import * as CloudDatabase from './src/services/cloudDatabase';
 
 const DATABASE_NAME = 'createfixture.db';
 
 let dbPromise = null;
 let initialized = false;
+let activeOwnerEmail = '';
 
 export async function getDatabase() {
   if (!dbPromise) {
@@ -158,6 +160,60 @@ function normalizeEmail(email = '') {
   return String(email || '').trim().toLowerCase();
 }
 
+function isGuestEmail(email = '') {
+  return normalizeEmail(email) === 'misafir@createfixture.app';
+}
+
+function shouldUseCloudForEmail(email = '') {
+  return CloudDatabase.isCloudConfigured() && !isGuestEmail(email);
+}
+
+export function isCloudDatabaseConfigured() {
+  return CloudDatabase.isCloudConfigured();
+}
+
+export async function signOutUser() {
+  activeOwnerEmail = '';
+  return CloudDatabase.signOut();
+}
+
+async function migrateLocalDataToCloud(email) {
+  if (!CloudDatabase.hasCloudSession()) return;
+  const db = await getDatabase();
+  const cleanEmail = normalizeEmail(email);
+  const rows = await db.getAllAsync(
+    'SELECT id, raw_json FROM tournaments WHERE LOWER(owner_email) = LOWER(?)',
+    cleanEmail
+  );
+
+  for (const row of rows) {
+    const tournament = JSON.parse(row.raw_json);
+    await CloudDatabase.saveTournamentToDatabase({
+      ...tournament,
+      email: cleanEmail,
+      ownerEmail: cleanEmail,
+    });
+
+    const tournamentId = String(row.id);
+    const keys = [
+      `matches_${tournamentId}`,
+      `matchResults_${tournamentId}`,
+      `groups_${tournamentId}`,
+      `tournament_${tournamentId}`,
+      `tableData_${tournamentId}`,
+      `showAnimation_${tournamentId}`,
+    ];
+    const placeholders = keys.map(() => '?').join(',');
+    const settingRows = await db.getAllAsync(
+      `SELECT key, value_json FROM app_settings WHERE key IN (${placeholders})`,
+      ...keys
+    );
+    for (const setting of settingRows) {
+      await CloudDatabase.saveSetting(setting.key, JSON.parse(setting.value_json));
+    }
+  }
+}
+
 function getTournamentName(tournament) {
   return tournament.ad || tournament.tournamentName || tournament.groupName || tournament.leagueName || 'İsimsiz Turnuva';
 }
@@ -171,6 +227,9 @@ function getTournamentOwnerEmail(tournament) {
 }
 
 export async function createUser(email, password, provider = 'email', options = {}) {
+  if (shouldUseCloudForEmail(email)) {
+    return CloudDatabase.createUser(email, password, provider, options);
+  }
   const db = await getDatabase();
   const cleanEmail = normalizeEmail(email);
   await db.runAsync(
@@ -187,6 +246,9 @@ export async function createUser(email, password, provider = 'email', options = 
 }
 
 export async function findUserByUsername(username) {
+  if (CloudDatabase.isCloudConfigured()) {
+    return CloudDatabase.findUserByUsername(username);
+  }
   const db = await getDatabase();
   return db.getFirstAsync(
     'SELECT * FROM users WHERE LOWER(username) = LOWER(?) LIMIT 1',
@@ -195,6 +257,9 @@ export async function findUserByUsername(username) {
 }
 
 export async function findUserByEmail(email) {
+  if (shouldUseCloudForEmail(email)) {
+    return CloudDatabase.findUserByEmail(email);
+  }
   const db = await getDatabase();
   return db.getFirstAsync(
     'SELECT * FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1',
@@ -203,6 +268,30 @@ export async function findUserByEmail(email) {
 }
 
 export async function findUserByCredentials(email, password) {
+  if (shouldUseCloudForEmail(email)) {
+    try {
+      const cloudUser = await CloudDatabase.findUserByCredentials(email, password);
+      await migrateLocalDataToCloud(cloudUser.email);
+      return cloudUser;
+    } catch (cloudError) {
+      const localDb = await getDatabase();
+      const localUser = await localDb.getFirstAsync(
+        'SELECT * FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1',
+        normalizeEmail(email)
+      );
+      if (!verifyPassword(localUser, password)) return null;
+
+      const migratedUser = await CloudDatabase.createUser(email, password, localUser.provider || 'email', {
+        username: localUser.username,
+        avatarUri: localUser.avatar_uri,
+        kvkkAcceptedAt: localUser.kvkk_accepted_at,
+      });
+      if (!migratedUser.requiresEmailConfirmation) {
+        await migrateLocalDataToCloud(email);
+      }
+      return migratedUser;
+    }
+  }
   const db = await getDatabase();
   const user = await db.getFirstAsync(
     'SELECT * FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1',
@@ -212,6 +301,9 @@ export async function findUserByCredentials(email, password) {
 }
 
 export async function updateUser(oldEmail, newEmail, newPassword, options = {}) {
+  if (shouldUseCloudForEmail(oldEmail)) {
+    return CloudDatabase.updateUser(oldEmail, newEmail, newPassword, options);
+  }
   const db = await getDatabase();
   const cleanOldEmail = normalizeEmail(oldEmail);
   const cleanNewEmail = normalizeEmail(newEmail);
@@ -250,6 +342,9 @@ export async function updateUser(oldEmail, newEmail, newPassword, options = {}) 
 }
 
 export async function updateUserProfile(email, updates = {}) {
+  if (shouldUseCloudForEmail(email)) {
+    return CloudDatabase.updateUserProfile(email, updates);
+  }
   const db = await getDatabase();
   await db.runAsync(
     `UPDATE users
@@ -264,6 +359,9 @@ export async function updateUserProfile(email, updates = {}) {
 }
 
 export async function updateUserPassword(email, oldPassword, newPassword) {
+  if (shouldUseCloudForEmail(email)) {
+    return CloudDatabase.updateUserPassword(email, oldPassword, newPassword);
+  }
   const db = await getDatabase();
   const user = await findUserByEmail(email);
   if (!verifyPassword(user, oldPassword)) {
@@ -279,6 +377,9 @@ export async function updateUserPassword(email, oldPassword, newPassword) {
 }
 
 export async function createPasswordResetToken(email) {
+  if (shouldUseCloudForEmail(email)) {
+    return CloudDatabase.createPasswordResetToken(email);
+  }
   const db = await getDatabase();
   const user = await findUserByEmail(email);
   if (!user) return null;
@@ -296,6 +397,9 @@ export async function createPasswordResetToken(email) {
 }
 
 export async function resetPasswordWithToken(token, newPassword) {
+  if (CloudDatabase.hasCloudSession()) {
+    return CloudDatabase.resetPasswordWithToken(token, newPassword);
+  }
   const db = await getDatabase();
   const tokenHash = md5(token || '');
   const user = await db.getFirstAsync(
@@ -319,6 +423,9 @@ export async function resetPasswordWithToken(token, newPassword) {
 }
 
 export async function deleteUserByEmail(email) {
+  if (shouldUseCloudForEmail(email)) {
+    return CloudDatabase.deleteUserByEmail(email);
+  }
   const db = await getDatabase();
   const cleanEmail = normalizeEmail(email);
   if (!cleanEmail) return;
@@ -361,6 +468,11 @@ export async function deleteUserByEmail(email) {
 
 export async function saveTournamentToDatabase(tournament, existingDb = null) {
   if (!tournament?.id) return;
+  const requestedOwner = getTournamentOwnerEmail(tournament);
+  if (requestedOwner) activeOwnerEmail = requestedOwner;
+  if (shouldUseCloudForEmail(requestedOwner)) {
+    return CloudDatabase.saveTournamentToDatabase(tournament);
+  }
   const db = existingDb || await getDatabase();
   const ownerEmail = getTournamentOwnerEmail(tournament);
   const scopedTournament = {
@@ -456,6 +568,7 @@ async function saveMatchToDatabase(db, tournamentId, match, options = {}) {
 
 export async function assignOwnerToUnownedTournaments(ownerEmail) {
   if (!ownerEmail) return;
+  if (shouldUseCloudForEmail(ownerEmail)) return;
   const db = await getDatabase();
   const rows = await db.getAllAsync(
     `SELECT raw_json FROM tournaments
@@ -469,6 +582,10 @@ export async function assignOwnerToUnownedTournaments(ownerEmail) {
 }
 
 export async function getTournamentsFromDatabase(ownerEmail = '') {
+  activeOwnerEmail = normalizeEmail(ownerEmail);
+  if (shouldUseCloudForEmail(ownerEmail)) {
+    return CloudDatabase.getTournamentsFromDatabase();
+  }
   const db = await getDatabase();
   const cleanEmail = normalizeEmail(ownerEmail);
   if (!cleanEmail) return [];
@@ -480,12 +597,25 @@ export async function getTournamentsFromDatabase(ownerEmail = '') {
 }
 
 export async function getAllTournamentsFromDatabase() {
+  if (CloudDatabase.hasCloudSession()) {
+    return CloudDatabase.getTournamentsFromDatabase();
+  }
   const db = await getDatabase();
+  if (activeOwnerEmail) {
+    const scopedRows = await db.getAllAsync(
+      'SELECT raw_json FROM tournaments WHERE LOWER(owner_email) = LOWER(?) ORDER BY created_at DESC',
+      activeOwnerEmail
+    );
+    return scopedRows.map(row => JSON.parse(row.raw_json));
+  }
   const rows = await db.getAllAsync('SELECT raw_json FROM tournaments ORDER BY created_at DESC');
   return rows.map(row => JSON.parse(row.raw_json));
 }
 
 export async function deleteTournamentFromDatabase(id, ownerEmail = '') {
+  if (shouldUseCloudForEmail(ownerEmail)) {
+    return CloudDatabase.deleteTournamentFromDatabase(id);
+  }
   const db = await getDatabase();
   if (ownerEmail) {
     await db.runAsync(
@@ -499,6 +629,9 @@ export async function deleteTournamentFromDatabase(id, ownerEmail = '') {
 }
 
 export async function saveSetting(key, value) {
+  if (CloudDatabase.hasCloudSession()) {
+    return CloudDatabase.saveSetting(key, value);
+  }
   const db = await getDatabase();
   await db.runAsync(
     `INSERT OR REPLACE INTO app_settings (key, value_json, updated_at)
@@ -509,18 +642,27 @@ export async function saveSetting(key, value) {
 }
 
 export async function getSetting(key, fallback = null) {
+  if (CloudDatabase.hasCloudSession()) {
+    return CloudDatabase.getSetting(key, fallback);
+  }
   const db = await getDatabase();
   const row = await db.getFirstAsync('SELECT value_json FROM app_settings WHERE key = ?', key);
   return row ? JSON.parse(row.value_json) : fallback;
 }
 
 export async function removeSetting(key) {
+  if (CloudDatabase.hasCloudSession()) {
+    return CloudDatabase.removeSetting(key);
+  }
   const db = await getDatabase();
   await db.runAsync('DELETE FROM app_settings WHERE key = ?', key);
 }
 
 export async function removeSettings(keys = []) {
   if (!keys.length) return;
+  if (CloudDatabase.hasCloudSession()) {
+    return CloudDatabase.removeSettings(keys);
+  }
   const db = await getDatabase();
   const placeholders = keys.map(() => '?').join(',');
   await db.runAsync(
@@ -531,6 +673,9 @@ export async function removeSettings(keys = []) {
 
 export async function getSettingsByKeys(keys = []) {
   if (!keys.length) return [];
+  if (CloudDatabase.hasCloudSession()) {
+    return CloudDatabase.getSettingsByKeys(keys);
+  }
   const db = await getDatabase();
   const placeholders = keys.map(() => '?').join(',');
   const rows = await db.getAllAsync(
@@ -541,6 +686,9 @@ export async function getSettingsByKeys(keys = []) {
 }
 
 export async function getAllSettingKeys() {
+  if (CloudDatabase.hasCloudSession()) {
+    return CloudDatabase.getAllSettingKeys();
+  }
   const db = await getDatabase();
   const rows = await db.getAllAsync('SELECT key FROM app_settings ORDER BY key ASC');
   return rows.map(row => row.key);
@@ -569,4 +717,6 @@ export default {
   removeSettings,
   getSettingsByKeys,
   getAllSettingKeys,
+  isCloudDatabaseConfigured,
+  signOutUser,
 };

@@ -8,13 +8,23 @@ function formatValue(value) {
   return String(value);
 }
 
+function getColumnStyle(header) {
+  const weight = Number(header.flex || header.width) || (header.key === 'team' ? 3 : 1);
+  return {
+    flexBasis: 0,
+    flexGrow: weight,
+    flexShrink: 1,
+    minWidth: 0,
+  };
+}
+
 function ExportTable({ title, headers, rows }) {
   return (
     <View style={styles.section}>
       {title ? <Text style={styles.sectionTitle}>{title}</Text> : null}
       <View style={styles.tableHeader}>
         {headers.map(header => (
-          <Text key={header.key} style={[styles.headerCell, { flex: header.flex }]}>
+          <Text key={header.key} style={[styles.headerCell, getColumnStyle(header)]} numberOfLines={1}>
             {header.label}
           </Text>
         ))}
@@ -22,7 +32,11 @@ function ExportTable({ title, headers, rows }) {
       {rows.map((row, rowIndex) => (
         <View key={`${row.team || rowIndex}_${rowIndex}`} style={[styles.tableRow, rowIndex % 2 === 1 && styles.tableRowAlt]}>
           {headers.map(header => (
-            <Text key={header.key} style={[styles.bodyCell, header.key === 'team' && styles.teamCell, { flex: header.flex }]} numberOfLines={1}>
+            <Text
+              key={header.key}
+              style={[styles.bodyCell, header.key === 'team' && styles.teamCell, getColumnStyle(header)]}
+              numberOfLines={1}
+            >
               {formatValue(row[header.key])}
             </Text>
           ))}
@@ -181,6 +195,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
     textAlign: 'center',
+    paddingHorizontal: 4,
   },
   tableRow: {
     flexDirection: 'row',
@@ -197,6 +212,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     textAlign: 'center',
+    paddingHorizontal: 4,
   },
   teamCell: {
     textAlign: 'left',

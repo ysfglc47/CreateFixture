@@ -2,7 +2,12 @@
 import { Image, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { FontAwesome as Icon } from '@expo/vector-icons';
 import { useDarkMode } from '../DarkModeContext';
-import { createUser, findUserByCredentials, findUserByEmail, findUserByUsername } from '../database';
+import {
+  createUser,
+  findUserByCredentials,
+  findUserByUsername,
+  isCloudDatabaseConfigured,
+} from '../database';
 import KvkkModal from '../components/KvkkModal';
 
 import { Text, TextInput } from '../components/I18nPrimitives';
@@ -35,14 +40,27 @@ export default function LoginScreen({ navigation }) {
       return;
     }
 
-    const user = await findUserByCredentials(email.trim(), password);
-    if (!user) {
-      showMessage('E-posta veya şifre hatalı.');
+    if (!isCloudDatabaseConfigured()) {
+      showMessage('Çevrimiçi hesap servisi yapılandırılmamış. Lütfen daha sonra tekrar deneyin.');
       return;
     }
 
-    showMessage('Giriş başarılı.');
-    setTimeout(() => goHome(user.email), 450);
+    try {
+      const user = await findUserByCredentials(email.trim(), password);
+      if (!user) {
+        showMessage('E-posta veya şifre hatalı.');
+        return;
+      }
+      if (user.requiresEmailConfirmation) {
+        showMessage('Hesabınızı kullanmak için e-posta adresinize gelen doğrulama bağlantısını açın.');
+        return;
+      }
+
+      showMessage('Giriş başarılı.');
+      setTimeout(() => goHome(user.email), 450);
+    } catch (error) {
+      showMessage('Giriş yapılamadı. İnternet bağlantınızı ve hesap bilgilerinizi kontrol edin.');
+    }
   }
 
   async function handleRegister() {
@@ -70,24 +88,36 @@ export default function LoginScreen({ navigation }) {
       return;
     }
 
-    const existingUser = await findUserByEmail(cleanEmail);
-    if (existingUser) {
-      showMessage('Bu e-posta ile zaten kayıt olunmuş.');
+    if (!isCloudDatabaseConfigured()) {
+      showMessage('Çevrimiçi hesap servisi yapılandırılmamış. Kayıt işlemi şu anda kullanılamıyor.');
       return;
     }
 
-    const existingUsername = await findUserByUsername(cleanUsername);
-    if (existingUsername) {
-      showMessage('Bu kullanıcı adı zaten kullanılıyor.');
-      return;
-    }
+    try {
+      const existingUsername = await findUserByUsername(cleanUsername);
+      if (existingUsername) {
+        showMessage('Bu kullanıcı adı zaten kullanılıyor.');
+        return;
+      }
 
-    await createUser(cleanEmail, password, 'email', {
-      username: cleanUsername,
-      kvkkAcceptedAt: new Date().toISOString(),
-    });
-    showMessage('Kayıt başarılı.');
-    setTimeout(() => goHome(cleanEmail), 450);
+      const user = await createUser(cleanEmail, password, 'email', {
+        username: cleanUsername,
+        kvkkAcceptedAt: new Date().toISOString(),
+      });
+      if (user?.requiresEmailConfirmation) {
+        showMessage('Kayıt oluşturuldu. E-posta adresinize gönderilen doğrulama bağlantısını açın.');
+        return;
+      }
+
+      showMessage('Kayıt başarılı.');
+      setTimeout(() => goHome(cleanEmail), 450);
+    } catch (error) {
+      if (error?.code === 'EMAIL_ALREADY_REGISTERED') {
+        showMessage('Bu e-posta ile zaten kayıt olunmuş.');
+        return;
+      }
+      showMessage('Kayıt oluşturulamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.');
+    }
   }
 
   function handleGuestLogin() {
