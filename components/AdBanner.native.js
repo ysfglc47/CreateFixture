@@ -36,6 +36,10 @@ function PlaceholderBanner({ isDarkMode = false, label = 'Reklam Alanı', compac
   );
 }
 
+function renderUnavailableBanner(props) {
+  return __DEV__ ? <PlaceholderBanner {...props} /> : null;
+}
+
 export default function AdBanner({ isDarkMode = false, label = 'Reklam Alanı', compact = false }) {
   const [ready, setReady] = useState(false);
   const [adModule, setAdModule] = useState(null);
@@ -65,14 +69,14 @@ export default function AdBanner({ isDarkMode = false, label = 'Reklam Alanı', 
   }, []);
 
   if (!ready || !adModule) {
-    return <PlaceholderBanner isDarkMode={isDarkMode} label={label} compact={compact} />;
+    return renderUnavailableBanner({ isDarkMode, label, compact });
   }
 
   try {
     const { BannerAd, BannerAdSize } = adModule;
     const { banner } = getAdMobUnitIds();
     if (!BannerAd || !BannerAdSize || !banner) {
-      return <PlaceholderBanner isDarkMode={isDarkMode} label={label} compact={compact} />;
+      return renderUnavailableBanner({ isDarkMode, label, compact });
     }
 
     return (
@@ -88,7 +92,7 @@ export default function AdBanner({ isDarkMode = false, label = 'Reklam Alanı', 
       </View>
     );
   } catch (error) {
-    return <PlaceholderBanner isDarkMode={isDarkMode} label={label} compact={compact} />;
+    return renderUnavailableBanner({ isDarkMode, label, compact });
   }
 }
 

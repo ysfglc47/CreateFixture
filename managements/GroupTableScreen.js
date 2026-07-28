@@ -158,7 +158,7 @@ export default function GroupTableScreen({ route, navigation }) {
         tableWidth: shortTableWidth,
         headers: [
           { key: 'pos', label: '#', width: pos },
-          { key: 'team', label: 'Tak?m', width: team },
+          { key: 'team', label: 'Takım', width: team },
           { key: 'played', label: 'O', width: played },
           { key: 'win', label: 'G', width: win },
           { key: 'draw', label: 'B', width: draw },
@@ -172,7 +172,7 @@ export default function GroupTableScreen({ route, navigation }) {
       tableWidth: 646,
       headers: [
         { key: 'pos', label: '#', width: 40 },
-        { key: 'team', label: 'Tak?m', width: 168 },
+        { key: 'team', label: 'Takım', width: 168 },
         { key: 'played', label: 'O', width: 42 },
         { key: 'win', label: 'G', width: 42 },
         { key: 'draw', label: 'B', width: 42 },

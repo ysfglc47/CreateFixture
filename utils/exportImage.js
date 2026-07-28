@@ -67,7 +67,6 @@ export async function exportRefAsPng(ref, fileName = 'createfixture-tablo.png') 
     const uri = await captureRef(target, {
       format: 'png',
       quality: 1,
-      snapshotContentContainer: true,
       result: Platform.OS === 'web' ? 'data-uri' : 'tmpfile',
     });
 
